@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>공정 판정 대시보드</title>
+<style>
+:root{--color-fg:#1d2330;--color-fg-muted:#5d6678;--color-bg:#f5f6f9;--color-panel:#fff;--color-border-line:#dfe3ea;--color-bad:#c4352c;--cds-chart-grid:#e6e9ef;--cds-chart-status-critical:#d9483b;--pj-pass:#4c7dd9;--cds-gap-sm:.5rem;--cds-gap-md:1rem;--cds-gap-lg:1.5rem;--cds-pad-lg:1.25rem;--cds-radius:8px;--cds-font-size-caption:.8125rem;--cds-font-size-body:.9375rem;--cds-font-size-heading:1rem;--cds-font-weight-medium:500;--font-anthropic-sans:system-ui,-apple-system,"Segoe UI","Malgun Gothic",sans-serif;--font-anthropic-serif:Georgia,"Batang",serif}
+@media (prefers-color-scheme:dark){:root{--color-fg:#e8ebf2;--color-fg-muted:#9aa3b5;--color-bg:#12151c;--color-panel:#1b2029;--color-border-line:#2c3340;--color-bad:#ff7a6e;--cds-chart-grid:#2a303b;--cds-chart-status-critical:#e5604f;--pj-pass:#6f9bf0}}
+body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:var(--font-anthropic-sans);padding:1.5rem 1.25rem}
+
+
+.pj { max-width: 72rem; margin-inline: auto; display: flex; flex-direction: column; gap: var(--cds-gap-lg); font-family: var(--font-anthropic-sans); color: var(--color-fg); }
+.pj h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: 1.75rem; margin: 0; }
+.pj .take { margin: .25rem 0 0; color: var(--color-fg-muted); font-size: var(--cds-font-size-body); }
+.pj .take b { color: var(--color-fg); font-weight: 500; }
+.pj .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: var(--cds-gap-md); }
+.pj .tile, .pj .card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); min-width: 0; }
+.pj .tile .lbl { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.pj .tile .big { display: block; font-family: var(--font-anthropic-serif); font-weight: 400; font-size: 2rem; line-height: 1.2; margin-top: .25rem; font-variant-numeric: tabular-nums; }
+.pj .tile .sub { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.pj .big.bad { color: var(--color-bad); }
+.pj .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: var(--cds-gap-md); }
+.pj .card h2 { margin: 0; font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); }
+.pj .card .note { margin: .125rem 0 var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.pj .legend { display: flex; gap: 1rem; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin-bottom: var(--cds-gap-sm); }
+.pj .legend i { display: inline-block; width: .65rem; height: .65rem; border-radius: 2px; margin-right: .35rem; vertical-align: -1px; }
+.pj .i-pass { background: var(--pj-pass, #4c7dd9); }
+.pj .i-fail { background: var(--cds-chart-status-critical); }
+.pj .bars { display: flex; flex-direction: column; gap: .6rem; min-height: 4rem; }
+.pj .brow { display: grid; grid-template-columns: 5.5rem 1fr auto; align-items: center; gap: .75rem; font-size: var(--cds-font-size-caption); }
+.pj .brow .k { overflow-wrap: anywhere; }
+.pj .track { display: flex; height: 1.1rem; background: var(--cds-chart-grid); border-radius: 3px; overflow: hidden; }
+.pj .track .p { background: var(--pj-pass, #4c7dd9); }
+.pj .track .f { background: var(--cds-chart-status-critical); }
+.pj .brow .v { color: var(--color-fg-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pj .tbox { max-height: 22rem; overflow: auto; }
+.pj table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+.pj th { position: sticky; top: 0; background: var(--color-panel); text-align: left; font-weight: 500; color: var(--color-fg-muted); padding: .4rem .6rem; border-bottom: 1px solid var(--color-border-line); white-space: nowrap; }
+.pj td { padding: .4rem .6rem; border-bottom: 1px solid var(--color-border-line); white-space: nowrap; }
+.pj .num { text-align: right; }
+[data-dash-source-state=empty] { color: transparent; }
+[data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+
+</style></head><body>
+
+<div class="pj">
+  <header>
+    <h1>공정 판정 대시보드</h1>
+    <p class="take">샘플 <b data-draw="num" data-source="summary" data-field="total">—</b>건 중 <b data-draw="num" data-source="summary" data-field="passRate" data-fmt="p">—</b>가 PASS이고, FAIL은 <b data-draw="num" data-source="summary" data-field="fail">—</b>건입니다.</p>
+  </header>
+
+  <section class="tiles" aria-label="핵심 지표">
+    <div class="tile"><span class="lbl">전체 판정 건수</span><b class="big" data-draw="num" data-source="summary" data-field="total">—</b><span class="sub">Item 측정 기준</span></div>
+    <div class="tile"><span class="lbl">PASS 비율</span><b class="big" data-draw="num" data-source="summary" data-field="passRate" data-fmt="p">—</b><span class="sub">PASS ÷ 전체</span></div>
+    <div class="tile"><span class="lbl">FAIL 건수</span><b class="big bad" data-draw="num" data-source="summary" data-field="fail">—</b><span class="sub">판정이 FAIL인 건</span></div>
+    <div class="tile"><span class="lbl">OOS 발생</span><b class="big" data-draw="num" data-source="summary" data-field="oos">—</b><span class="sub">OOS 여부 = O</span></div>
+  </section>
+
+  <section class="card">
+    <div class="legend"><span><i class="i-pass"></i>PASS</span><span><i class="i-fail"></i>FAIL</span></div>
+    <div class="grid" style="gap: var(--cds-gap-lg)">
+      <div><h2>제품군별 판정</h2><p class="note">막대 길이는 건수 기준 PASS/FAIL 구성</p><div class="bars dash-skeleton" data-draw="bars" data-source="by_prod"></div></div>
+      <div><h2>공정별 판정</h2><p class="note">ETCH, CMP, LITHO, CVD</p><div class="bars dash-skeleton" data-draw="bars" data-source="by_proc"></div></div>
+      <div><h2>Grade별 판정</h2><p class="note">A, B, C 등급</p><div class="bars dash-skeleton" data-draw="bars" data-source="by_grade"></div></div>
+      <div><h2>Item별 판정</h2><p class="note">CD1, CD2, THK, OVL</p><div class="bars dash-skeleton" data-draw="bars" data-source="by_item"></div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>이상 플래그와 판정</h2>
+    <p class="note">각 플래그가 O인 건 중 PASS/FAIL 구성</p>
+    <div class="bars dash-skeleton" data-draw="bars" data-source="by_flag"></div>
+  </section>
+
+  <section class="card">
+    <h2>FAIL 상세</h2>
+    <p class="note">MS가 큰 순서로 정렬한 FAIL 건</p>
+    <div class="tbox">
+      <table data-source="fails" data-row-key="id">
+        <thead><tr>
+          <th data-field="id">번호</th><th data-field="PARTID">PARTID</th><th data-field="제품군">제품군</th><th data-field="공정">공정</th><th data-field="Grade">Grade</th><th data-field="Item">Item</th><th data-field="플래그">플래그</th><th class="num" data-field="MS">MS</th><th class="num" data-field="SR">SR</th>
+        </tr></thead>
+        <tbody data-draw="failrows"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script>
+const CSV = "제품군,노드,공정,공법,PARTID,Grade,Item,OOS 여부,연속 SPC 여부,심각 SPC 여부,MS,SR,판정\nNAND,V7,CVD,M2,P7851,B,CD1,O,X,X,0.46,0.96,PASS\nDRAM,1a,CVD,M1,P4622,A,CD1,X,X,X,0.74,0.38,PASS\nDRAM,1b,CVD,M3,P4078,A,THK,O,O,X,0.6,1.06,FAIL\neFLASH,28nm,ETCH,M1,P3945,B,CD2,X,X,X,0.61,1.5,PASS\neFLASH,40nm,CVD,M1,P9011,C,OVL,X,X,X,0.23,0.84,PASS\neFLASH,28nm,LITHO,M3,P2064,A,CD1,X,X,X,0.18,0.42,PASS\nNAND,V8,LITHO,M1,P5709,B,CD2,X,X,X,0.49,1.09,PASS\nDRAM,1b,CVD,M3,P5561,C,OVL,X,X,X,0.41,0.48,PASS\nNAND,V8,CMP,M1,P3386,A,OVL,X,X,X,0.63,1.07,PASS\nNAND,V8,CMP,M3,P7428,B,OVL,X,X,X,0.16,1.47,PASS\nLOGIC,7nm,ETCH,M1,P1003,A,CD2,X,X,X,0.58,0.44,PASS\neFLASH,40nm,ETCH,M1,P8996,A,OVL,X,X,X,1.15,1.08,PASS\nLOGIC,7nm,LITHO,M1,P4362,A,THK,O,O,O,1.31,0.81,FAIL\nDRAM,1a,LITHO,M3,P9873,C,THK,X,X,X,0.5,0.52,PASS\nDRAM,1a,CMP,M2,P8737,C,THK,X,X,X,0.49,0.34,PASS\nDRAM,1b,CVD,M2,P4348,C,OVL,X,X,X,0.19,0.43,PASS\neFLASH,40nm,LITHO,M1,P8109,B,THK,O,X,X,1.26,1.28,PASS\neFLASH,40nm,CVD,M3,P3394,A,OVL,X,X,X,0.24,0.5,PASS\nNAND,V7,CMP,M1,P4457,A,CD1,X,X,X,0.92,0.48,PASS\nNAND,V7,LITHO,M2,P9466,B,OVL,X,X,X,1.02,0.38,PASS\nDRAM,1a,ETCH,M1,P2011,C,THK,X,X,X,0.26,0.48,PASS\nLOGIC,5nm,ETCH,M2,P6334,A,CD2,X,X,X,0.72,1.29,PASS\nNAND,V8,CVD,M1,P8332,B,CD2,X,X,X,1.12,1.5,PASS\nLOGIC,5nm,CVD,M1,P6999,A,CD2,O,O,O,1.14,1.62,FAIL\nNAND,V7,CVD,M2,P9447,A,OVL,X,X,X,1.19,1.38,PASS\nNAND,V8,CMP,M3,P5840,A,CD1,O,X,X,0.9,1.21,PASS\neFLASH,28nm,ETCH,M3,P5237,A,OVL,X,X,X,0.93,1.37,PASS\nDRAM,1b,LITHO,M2,P2372,A,CD2,O,X,X,0.48,1.52,PASS\neFLASH,40nm,ETCH,M1,P2793,A,CD2,X,X,X,0.39,0.47,PASS\nNAND,V7,CMP,M2,P1297,A,THK,X,X,X,0.42,0.95,PASS\neFLASH,28nm,ETCH,M2,P9110,B,OVL,X,X,X,1.13,0.44,PASS\nNAND,V7,CMP,M1,P1233,A,CD1,X,X,X,0.55,0.75,PASS\nNAND,V8,CMP,M1,P8527,A,CD2,X,X,X,1.17,1.08,PASS\nDRAM,1b,CVD,M1,P6842,A,CD2,X,X,X,0.46,0.34,PASS\neFLASH,40nm,CVD,M1,P7545,A,CD1,X,X,X,0.95,0.42,PASS\nLOGIC,5nm,LITHO,M3,P7381,A,THK,X,X,X,0.93,1.15,PASS\nLOGIC,5nm,LITHO,M3,P3282,B,CD1,X,O,X,1.08,1.12,PASS\nDRAM,1a,ETCH,M3,P5006,A,OVL,X,X,X,0.6,0.37,FAIL\nNAND,V7,CVD,M2,P2219,B,THK,X,X,X,0.83,0.39,PASS\nDRAM,1a,CMP,M3,P4248,B,CD1,X,X,X,0.63,1.19,PASS\nDRAM,1b,LITHO,M1,P4566,B,OVL,X,X,X,0.63,0.93,PASS\nNAND,V8,CVD,M2,P8519,A,CD1,X,X,X,0.44,0.41,PASS\nLOGIC,7nm,CVD,M1,P9335,A,THK,X,X,X,0.26,0.98,PASS\neFLASH,40nm,CMP,M3,P3305,A,OVL,X,X,X,1.14,1.19,PASS\nNAND,V8,LITHO,M1,P5748,A,THK,X,X,X,0.54,1.52,PASS\nNAND,V7,CVD,M1,P5679,A,CD2,X,O,X,0.93,1.41,PASS\nDRAM,1b,CVD,M3,P7554,B,CD2,O,X,X,1.37,1.36,FAIL\neFLASH,28nm,CVD,M2,P7797,A,THK,X,X,X,0.15,1.5,PASS\nNAND,V8,LITHO,M1,P3648,B,CD1,X,X,X,0.43,1.02,PASS\nDRAM,1b,CMP,M3,P2492,A,THK,X,X,X,0.7,0.62,PASS\nDRAM,1b,LITHO,M1,P7174,C,THK,O,O,X,0.82,1.27,FAIL\nNAND,V7,CVD,M2,P5070,A,OVL,X,X,X,0.79,1.42,PASS\nLOGIC,7nm,CVD,M2,P9025,C,CD1,X,X,O,0.14,1.52,FAIL\neFLASH,40nm,CVD,M3,P8492,C,CD1,O,O,O,0.97,1.49,FAIL\neFLASH,28nm,CMP,M3,P2837,A,CD1,X,X,X,0.24,0.63,PASS\neFLASH,40nm,CMP,M2,P4970,A,OVL,X,X,O,0.43,1.2,FAIL\nDRAM,1a,ETCH,M2,P2328,C,THK,X,X,O,0.65,1.48,FAIL\nDRAM,1b,LITHO,M2,P9271,A,CD1,O,O,X,1.15,0.56,FAIL\nDRAM,1b,CMP,M2,P4068,A,CD2,X,X,X,0.94,0.68,PASS\nLOGIC,7nm,ETCH,M1,P1985,C,CD2,O,X,X,1.47,0.48,FAIL\nLOGIC,7nm,LITHO,M1,P6108,B,OVL,X,X,X,0.3,1.52,PASS\nNAND,V8,CVD,M1,P7228,A,THK,O,O,X,1.45,0.46,FAIL\nNAND,V8,ETCH,M1,P7730,A,CD2,X,X,X,0.31,0.77,PASS\nLOGIC,5nm,CVD,M2,P6488,A,CD1,O,X,X,1.22,1.47,PASS\nNAND,V8,LITHO,M1,P8785,A,OVL,X,X,X,1.14,0.38,PASS\nLOGIC,7nm,CVD,M3,P3479,C,CD2,O,X,O,1.42,0.99,FAIL\nNAND,V8,CVD,M1,P1554,A,OVL,X,O,O,0.93,0.92,FAIL\nNAND,V7,CVD,M2,P3837,C,CD2,X,X,X,0.21,0.95,PASS\nDRAM,1b,CVD,M2,P5577,B,THK,X,X,X,0.83,0.46,PASS\nNAND,V8,LITHO,M2,P5123,A,CD2,X,X,X,1.07,1.05,PASS\nDRAM,1a,CVD,M1,P5811,C,CD2,O,X,X,1.32,1.49,FAIL\neFLASH,28nm,CMP,M3,P1103,B,CD1,X,X,X,0.66,0.53,PASS\nNAND,V7,ETCH,M1,P6361,A,OVL,X,X,X,0.76,1.15,PASS\nNAND,V7,LITHO,M1,P9749,A,CD1,O,X,X,0.85,1.33,PASS\nDRAM,1b,LITHO,M2,P1298,A,THK,X,X,X,0.44,1.04,PASS\nDRAM,1b,CVD,M2,P3663,A,CD2,O,X,X,1.3,0.83,PASS\neFLASH,28nm,CMP,M2,P3651,B,CD2,X,O,X,0.51,0.96,PASS\neFLASH,28nm,CVD,M2,P6153,A,CD1,X,X,X,0.24,1.53,PASS\nLOGIC,5nm,CMP,M1,P7549,B,CD2,X,X,X,0.32,0.91,PASS\nLOGIC,7nm,ETCH,M3,P6311,A,CD1,X,X,X,1.07,1.4,PASS\nLOGIC,7nm,LITHO,M1,P9019,B,OVL,X,X,X,0.5,0.95,PASS\nDRAM,1b,CVD,M3,P9358,C,CD1,X,X,X,0.49,0.77,PASS\neFLASH,28nm,ETCH,M1,P1423,C,CD1,X,X,X,0.93,1.46,PASS\neFLASH,28nm,CMP,M1,P6749,C,THK,X,X,X,0.28,1.32,PASS\nDRAM,1b,LITHO,M1,P6227,C,THK,X,X,X,0.63,1.07,PASS\neFLASH,28nm,CMP,M3,P1795,A,THK,X,X,X,0.51,1.33,PASS\nLOGIC,5nm,LITHO,M2,P6420,C,CD1,X,X,X,0.39,1.59,PASS\nLOGIC,5nm,CMP,M3,P6122,B,CD1,X,X,X,0.44,1.56,PASS\neFLASH,28nm,CMP,M1,P1365,A,CD1,X,X,X,0.15,0.93,PASS\neFLASH,40nm,LITHO,M2,P3598,A,CD2,X,X,X,0.75,0.57,PASS\neFLASH,28nm,CMP,M1,P1919,A,THK,O,O,X,0.7,1.36,FAIL\nLOGIC,7nm,CMP,M1,P1202,A,CD2,O,O,O,0.6,0.81,FAIL\nDRAM,1b,CMP,M3,P1794,B,OVL,X,X,X,0.77,0.96,PASS\neFLASH,40nm,CVD,M1,P3019,B,THK,X,X,X,0.35,0.44,PASS\nNAND,V7,LITHO,M1,P2399,B,CD1,X,X,X,1.17,0.68,PASS\nDRAM,1b,CMP,M3,P4918,C,OVL,O,O,X,0.61,0.81,FAIL\nLOGIC,7nm,ETCH,M1,P3810,C,CD2,X,X,X,0.44,0.58,PASS\neFLASH,28nm,ETCH,M3,P1698,A,CD1,X,X,X,0.13,0.35,PASS\neFLASH,28nm,LITHO,M2,P2754,A,CD2,X,X,X,1.07,1.28,PASS\nDRAM,1a,ETCH,M2,P2636,A,CD2,X,X,X,0.2,1.28,PASS\neFLASH,28nm,LITHO,M2,P6256,A,OVL,X,O,O,0.41,1.53,FAIL\nNAND,V7,CVD,M1,P5704,A,CD2,X,O,X,0.15,1.04,PASS\nLOGIC,5nm,CMP,M2,P6688,A,THK,X,O,X,0.21,1.2,PASS\nDRAM,1b,CMP,M3,P2713,C,THK,O,O,X,1.24,0.94,FAIL\nNAND,V7,CVD,M2,P9928,C,CD2,X,X,X,0.81,0.78,PASS\nLOGIC,5nm,CVD,M2,P6297,A,CD2,X,X,X,0.14,1.06,PASS\nLOGIC,7nm,LITHO,M3,P3532,B,CD2,O,X,X,0.66,0.55,PASS\nDRAM,1b,LITHO,M1,P4201,A,OVL,X,X,X,0.9,0.43,PASS\nDRAM,1a,LITHO,M1,P1206,B,OVL,X,X,X,0.22,0.57,PASS\nLOGIC,5nm,LITHO,M3,P7900,A,CD2,X,X,X,0.92,1.48,PASS\nDRAM,1a,ETCH,M3,P3563,A,THK,X,X,X,0.56,1.32,PASS\nLOGIC,7nm,CVD,M1,P7368,A,OVL,X,X,X,1.06,1.46,PASS\neFLASH,28nm,LITHO,M3,P4358,B,OVL,O,X,X,0.97,0.43,PASS\neFLASH,40nm,LITHO,M3,P6824,A,CD1,X,X,X,0.53,1.29,PASS\nNAND,V8,CVD,M1,P5972,A,OVL,O,X,X,1.17,0.76,PASS\nDRAM,1b,CVD,M1,P3396,A,THK,X,X,X,0.8,0.91,PASS\nLOGIC,7nm,LITHO,M3,P5154,B,OVL,X,X,X,0.96,0.6,PASS\nDRAM,1b,ETCH,M1,P6938,C,CD2,X,X,X,0.45,0.93,PASS\nNAND,V8,ETCH,M3,P1188,A,CD2,X,X,X,0.68,0.75,PASS\neFLASH,40nm,LITHO,M2,P9757,B,CD2,X,X,X,0.6,1.32,PASS\neFLASH,40nm,CMP,M2,P4836,A,CD2,X,O,X,0.84,0.45,PASS\nLOGIC,7nm,ETCH,M1,P6254,A,OVL,X,X,X,0.28,1.08,PASS\nLOGIC,7nm,CVD,M3,P1751,A,THK,X,X,X,0.8,1.13,PASS\neFLASH,40nm,CVD,M3,P6999,B,THK,O,O,X,0.54,0.42,FAIL\nLOGIC,5nm,LITHO,M3,P5451,A,THK,X,X,X,0.42,1.38,PASS\nDRAM,1b,ETCH,M3,P7652,A,CD1,X,X,X,0.8,1.32,PASS\nLOGIC,7nm,ETCH,M3,P7161,A,CD2,X,X,X,0.82,1.33,PASS\neFLASH,28nm,ETCH,M3,P1219,B,THK,X,X,X,0.3,0.35,PASS\nDRAM,1b,LITHO,M1,P9155,C,CD1,O,O,O,1.02,1.35,FAIL\neFLASH,40nm,CVD,M2,P7757,A,CD1,O,X,X,1.43,1.58,FAIL\neFLASH,40nm,CMP,M1,P4575,C,CD1,X,X,O,0.84,1.88,FAIL\nDRAM,1b,ETCH,M3,P3372,A,CD1,X,X,X,1.12,0.78,PASS\nNAND,V8,CVD,M3,P2305,B,OVL,X,X,X,0.14,0.38,PASS\nNAND,V8,CMP,M1,P3374,C,CD1,X,X,X,1.14,1.25,PASS\nNAND,V7,CVD,M3,P6440,A,CD1,X,X,X,0.93,0.73,PASS\nDRAM,1b,CVD,M3,P1027,C,THK,O,X,X,1.25,0.6,PASS\nNAND,V8,CVD,M3,P3408,A,THK,X,X,X,0.42,0.48,PASS\nLOGIC,7nm,ETCH,M1,P7479,B,OVL,X,X,X,0.89,1.58,PASS\nDRAM,1b,ETCH,M2,P9550,B,THK,X,O,X,0.95,0.6,PASS\nLOGIC,5nm,CMP,M1,P5035,A,CD1,O,X,X,1.04,0.77,PASS\nLOGIC,7nm,ETCH,M1,P1550,A,CD2,X,O,X,0.13,0.66,PASS\nLOGIC,5nm,LITHO,M1,P5161,C,CD1,O,O,X,1.05,1.09,FAIL\nNAND,V7,CMP,M1,P7510,A,CD1,O,O,X,1.18,0.93,FAIL\neFLASH,40nm,LITHO,M1,P4632,B,CD2,X,X,X,0.53,0.88,PASS\neFLASH,40nm,LITHO,M2,P1913,A,CD1,X,O,X,0.38,0.97,PASS\nDRAM,1b,ETCH,M2,P7390,C,CD1,X,X,X,0.93,0.44,PASS\nNAND,V8,CVD,M1,P3571,A,CD2,X,X,X,0.11,1.23,PASS\neFLASH,40nm,CMP,M2,P4831,B,OVL,X,X,X,0.12,0.4,PASS\neFLASH,40nm,CMP,M2,P7746,A,CD2,X,X,X,1.08,0.87,PASS\nDRAM,1a,LITHO,M1,P9412,B,CD1,X,X,X,0.22,0.89,PASS\nDRAM,1b,LITHO,M2,P5741,A,OVL,X,X,X,0.39,0.61,PASS\nDRAM,1a,LITHO,M3,P5692,A,CD2,X,X,X,0.66,0.88,PASS\nNAND,V8,ETCH,M1,P2298,C,CD1,O,X,X,0.6,1.3,PASS\nLOGIC,7nm,CMP,M3,P9512,A,OVL,X,X,X,0.74,0.56,PASS\neFLASH,40nm,LITHO,M3,P5362,A,CD2,X,X,X,0.55,1.29,PASS\nDRAM,1b,ETCH,M3,P2168,A,CD1,X,X,O,0.67,1.18,FAIL\nNAND,V7,LITHO,M2,P9410,B,CD1,X,X,X,0.42,0.44,PASS\nDRAM,1a,CMP,M1,P1318,C,CD1,O,O,O,0.68,1.66,FAIL\nDRAM,1b,ETCH,M1,P1740,C,THK,X,X,X,0.59,0.76,PASS\neFLASH,40nm,CVD,M1,P3412,B,OVL,X,X,X,1.07,1.0,PASS\n";
+const parse=t=>{const L=t.trim().split('\n').map(l=>l.replace('\r','').split(','));const h=L[0];return L.slice(1).map(c=>Object.fromEntries(h.map((k,i)=>[k,c[i]])));};
+const ROWS=parse(CSV);
+const grp=(key)=>{const m={};ROWS.forEach(r=>{const k=r[key];m[k]=m[k]||{key:k,total:0,pass:0,fail:0};m[k].total++;m[k][r['판정']==='FAIL'?'fail':'pass']++;});return Object.values(m);};
+const FL=['OOS 여부','연속 SPC 여부','심각 SPC 여부'];
+const n=ROWS.length,failN=ROWS.filter(r=>r['판정']==='FAIL').length;
+const DATA={
+ summary:[{total:n,pass:n-failN,fail:failN,passRate:(n-failN)/n,oos:ROWS.filter(r=>r['OOS 여부']==='O').length}],
+ by_prod:grp('제품군').sort((a,b)=>b.total-a.total),
+ by_proc:grp('공정').sort((a,b)=>b.total-a.total),
+ by_grade:grp('Grade').sort((a,b)=>a.key<b.key?-1:1),
+ by_item:grp('Item').sort((a,b)=>a.key<b.key?-1:1),
+ by_flag:FL.map(k=>{const f=ROWS.filter(r=>r[k]==='O');const x=f.filter(r=>r['판정']==='FAIL').length;return{key:k.replace(' 여부',''),total:f.length,pass:f.length-x,fail:x};}),
+ fails:ROWS.map((r,i)=>({id:i+1,PARTID:r.PARTID,'제품군':r['제품군'],'공정':r['공정'],Grade:r.Grade,Item:r.Item,'플래그':FL.filter(k=>r[k]==='O').map(k=>k.replace(' 여부','')).join(', ')||'-',MS:+r.MS,SR:+r.SR,_f:r['판정']==='FAIL'})).filter(r=>r._f).sort((a,b)=>b.MS-a.MS)
+};
+const d3={format:s=>{if(s===',')return v=>v.toLocaleString('en-US');if(s==='.1%')return v=>(v*100).toFixed(1)+'%';return v=>v.toFixed(2);},max:(a,f)=>Math.max(...a.map(f))};
+const dash={data:id=>({status:'ok',data:DATA[id]}),draw:(name,fn)=>document.querySelectorAll('[data-draw="'+name+'"]').forEach(fn)};
+const fN = d3.format(','), fP = d3.format('.1%'), f2 = d3.format('.2f');
+
+dash.draw('num', (el) => {
+  const g = dash.data(el.dataset.source);
+  if (g.status !== 'ok' || !g.data.length) { el.textContent = '—'; return; }
+  const v = g.data[0][el.dataset.field];
+  el.textContent = (el.dataset.fmt === 'p' ? fP : fN)(v);
+});
+
+dash.draw('bars', (el) => {
+  const g = dash.data(el.dataset.source);
+  if (g.status !== 'ok') { el.replaceChildren(); return; }
+  el.classList.remove('dash-skeleton');
+  const max = d3.max(g.data, d => d.total) || 1;
+  el.replaceChildren(...g.data.map(d => {
+    const row = document.createElement('div'); row.className = 'brow';
+    const k = document.createElement('span'); k.className = 'k'; k.textContent = d.key;
+    const t = document.createElement('div'); t.className = 'track'; t.style.width = (d.total / max * 100) + '%';
+    const p = document.createElement('span'); p.className = 'p'; p.style.flex = String(d.pass);
+    const f = document.createElement('span'); f.className = 'f'; f.style.flex = String(d.fail);
+    t.append(p, f);
+    const wrap = document.createElement('div'); wrap.append(t);
+    const v = document.createElement('span'); v.className = 'v';
+    v.textContent = fN(d.total) + '건 · FAIL ' + fN(d.fail) + ' (' + fP(d.total ? d.fail / d.total : 0) + ')';
+    row.append(k, wrap, v);
+    return row;
+  }));
+});
+
+dash.draw('failrows', (tb) => {
+  const g = dash.data('fails');
+  if (g.status !== 'ok') { tb.replaceChildren(); return; }
+  tb.replaceChildren(...g.data.map(r => {
+    const tr = document.createElement('tr');
+    ['id', 'PARTID', '제품군', '공정', 'Grade', 'Item', '플래그', 'MS', 'SR'].forEach(c => {
+      const td = document.createElement('td');
+      if (c === 'MS' || c === 'SR') { td.className = 'num'; td.textContent = f2(r[c]); }
+      else td.textContent = r[c];
+      tr.append(td);
+    });
+    return tr;
+  }));
+});
+
+</script></body></html>
